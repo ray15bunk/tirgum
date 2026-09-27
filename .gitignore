@@ -1,0 +1,14 @@
+# Собранная программа публикуется в GitHub Releases, а не в коде
+*.exe
+build/
+dist/
+*.spec
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Временные файлы озвучки
+*.mp3

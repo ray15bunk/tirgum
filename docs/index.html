@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тиргум — голосовой переводчик</title>
+<meta name="description" content="Говорите по-русски — слушайте по-английски, и наоборот. Голосовой переводчик с озвучкой прямо в браузере.">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ff7a8a'/%3E%3Cstop offset='1' stop-color='%23e0306a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='30' fill='url(%23g)'/%3E%3Crect x='26' y='14' width='12' height='22' rx='6' fill='white'/%3E%3Cpath d='M20 32a12 12 0 0 0 24 0M32 44v7' stroke='white' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-1: #0e1120;
+    --bg-2: #171b31;
+    --card: #1a1e36;
+    --card-border: #272c4b;
+    --text: #e8eaf6;
+    --text-strong: #ffffff;
+    --muted: #8a90b4;
+    --faint: #5d6386;
+    --accent-1: #7c6cff;
+    --accent-2: #5b8cff;
+    --mic-1: #ff7a8a;
+    --mic-2: #e0306a;
+    --ok: #3ddc97;
+    --busy: #f5b544;
+    --listen: #ff5f7e;
+    --error: #ff6b6b;
+    --idle: #6b7194;
+    --radius: 18px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  html { background: var(--bg-2); }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--bg-1), var(--bg-2));
+    color: var(--text);
+    font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 24px; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:disabled { cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent-1); outline-offset: 2px; }
+
+  /* --- Шапка --- */
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  .titles { flex: 1 1 240px; min-width: 0; }
+  h1 { margin: 0; font-size: 30px; font-weight: 800; color: var(--text-strong); letter-spacing: -0.02em; }
+  .subtitle { margin: 2px 0 0; color: var(--muted); font-size: 14.5px; }
+  .head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    font-weight: 700; font-size: 13.5px; color: #c9c6ff;
+    background: rgba(124, 108, 255, 0.16); border: 1px solid rgba(124, 108, 255, 0.45);
+    border-radius: 999px; padding: 8px 16px; letter-spacing: 0.02em;
+  }
+  .pill:hover:not(:disabled) { background: rgba(124, 108, 255, 0.30); color: #fff; }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #c9cdf0; flex: none;
+  }
+  .icon-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.13); }
+  .icon-btn:disabled { color: #454a6b; background: rgba(255, 255, 255, 0.03); }
+  .icon-btn.speak:not(:disabled) { color: #fff; background: rgba(124, 108, 255, 0.35); border-color: rgba(124, 108, 255, 0.6); }
+  .icon-btn.speak:not(:disabled):hover { background: rgba(124, 108, 255, 0.55); }
+  .icon-btn svg, .download svg { width: 18px; height: 18px; }
+  .download {
+    display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+    font-weight: 600; font-size: 13.5px; color: var(--text);
+    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 999px; padding: 8px 14px;
+  }
+  .download:hover { background: rgba(255, 255, 255, 0.13); color: #fff; }
+
+  /* --- Карточки --- */
+  .card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: var(--radius); padding: 16px 16px 14px 20px;
+  }
+  .card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11.5px; font-weight: 700; color: #fff; border-radius: 8px; padding: 3px 8px;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  }
+  .card-title { font-weight: 600; font-size: 14px; color: #aab0d6; }
+  .spacer { flex: 1; }
+  textarea, .out-text {
+    width: 100%; background: transparent; border: none; resize: none; color: var(--text);
+    font: inherit; padding: 10px 0 6px; margin: 0;
+  }
+  textarea { font-size: 18px; min-height: 110px; line-height: 1.45; }
+  textarea:focus { outline: none; }
+  textarea::placeholder { color: var(--faint); }
+  .out-text {
+    font-size: 28px; font-weight: 600; line-height: 1.3; color: var(--text-strong);
+    min-height: 150px; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .out-text.placeholder { color: var(--faint); }
+  .card-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .hint { color: var(--faint); font-size: 12.5px; flex: 1; min-width: 180px; }
+  .primary {
+    border: none; border-radius: 12px; padding: 10px 22px; font-weight: 600; font-size: 14.5px; color: #fff;
+    background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+  }
+  .primary:hover:not(:disabled) { background: linear-gradient(90deg, #8d7fff, #6d9aff); }
+  .primary:disabled { background: #2d3252; color: #6b7194; }
+
+  /* --- Переключатель темпа --- */
+  .seg {
+    display: inline-flex; align-items: center; gap: 2px; padding: 3px 3px 3px 10px;
+    background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 999px;
+  }
+  .seg span { font-size: 12px; color: var(--idle); margin-right: 4px; }
+  .seg button {
+    border: none; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 600;
+    border-radius: 999px; padding: 5px 10px;
+  }
+  .seg button:hover { color: var(--text); }
+  .seg button[aria-pressed="true"] { color: #fff; background: rgba(124, 108, 255, 0.45); }
+
+  /* --- Микрофон --- */
+  .mic-zone { display: flex; flex-direction: column; align-items: center; padding: 10px 0 6px; }
+  .mic {
+    position: relative; width: 84px; height: 84px; border-radius: 50%; border: none; margin: 20px;
+    background: linear-gradient(135deg, var(--mic-1), var(--mic-2)); color: #fff;
+    box-shadow: 0 0 34px rgba(224, 48, 106, 0.45);
+    display: grid; place-items: center; transition: transform .15s, filter .15s;
+  }
+  .mic:hover:not(:disabled) { filter: brightness(1.1); transform: scale(1.03); }
+  .mic:disabled { background: #2c3150; color: #7d82a6; box-shadow: none; }
+  .mic svg { width: 32px; height: 32px; position: relative; z-index: 1; }
+  .mic.preparing { background: linear-gradient(135deg, #8d92b5, #5b6088); box-shadow: none; }
+  .mic.listening::before, .mic.listening::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: rgba(255, 95, 126, 0.45); animation: pulse 1.4s ease-out infinite;
+  }
+  .mic.listening::after { animation-delay: .7s; }
+  @keyframes pulse { from { transform: scale(1); opacity: .9; } to { transform: scale(1.7); opacity: 0; } }
+  .mic-hint { font-size: 13px; color: var(--muted); min-height: 18px; text-align: center; }
+  .mic-hint.active { color: #ff8fa3; font-weight: 600; }
+
+  /* --- Статус и подвал --- */
+  .status { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--idle); flex: none; }
+  footer { margin-top: 22px; font-size: 12.5px; color: var(--faint); line-height: 1.6; }
+  footer a { color: var(--muted); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  @media (max-width: 560px) {
+    h1 { font-size: 26px; }
+    .out-text { font-size: 22px; min-height: 110px; }
+    textarea { font-size: 16px; }
+    .download .label-long { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="titles">
+      <h1>Тиргум</h1>
+      <p class="subtitle" id="subtitle"></p>
+    </div>
+    <div class="head-actions">
+      <button class="pill" id="direction" title="Поменять направление перевода (F4)"></button>
+      <button class="icon-btn" id="swap" title="Поменять направление перевода (F4)" aria-label="Поменять направление">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/></svg>
+      </button>
+      <a class="download" id="download" href="https://github.com/ray15bunk/tirgum/releases/latest/download/Tirgum.exe" title="Программа для Windows — работает без браузера">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+        <span><span class="label-long">Скачать для </span>Windows</span>
+      </a>
+    </div>
+  </header>
+
+  <section class="card" aria-label="Исходный текст">
+    <div class="card-head">
+      <span class="badge" id="inBadge"></span>
+      <span class="card-title" id="inTitle"></span>
+    </div>
+    <label for="input" class="sr-only">Исходный текст</label>
+    <textarea id="input" placeholder="Скажите фразу в микрофон или введите текст…" maxlength="5000"></textarea>
+    <div class="card-foot">
+      <span class="hint">Enter — перевести · Shift+Enter — новая строка</span>
+      <button class="primary" id="translate">Перевести</button>
+    </div>
+  </section>
+
+  <div class="mic-zone">
+    <button class="mic" id="mic" aria-label="Говорить (F2)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>
+    </button>
+    <div class="mic-hint" id="micHint"></div>
+  </div>
+
+  <section class="card" aria-label="Перевод">
+    <div class="card-head">
+      <span class="badge" id="outBadge"></span>
+      <span class="card-title" id="outTitle"></span>
+      <span class="spacer"></span>
+      <div class="seg" role="group" aria-label="Темп озвучки" id="speeds">
+        <span>Темп</span>
+        <button data-speed="1" title="Обычная скорость">1×</button>
+        <button data-speed="0.85" title="Немного медленнее">0.85×</button>
+        <button data-speed="0.7" title="Медленно">0.7×</button>
+      </div>
+      <button class="icon-btn" id="copy" title="Скопировать перевод" aria-label="Скопировать перевод" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/></svg>
+      </button>
+      <button class="icon-btn speak" id="repeat" title="Повторить озвучку" aria-label="Повторить озвучку" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>
+      </button>
+    </div>
+    <div class="out-text placeholder" id="output" aria-live="polite">Здесь появится перевод</div>
+  </section>
+
+  <div class="status" role="status"><span class="dot" id="dot"></span><span id="status"></span></div>
+
+  <footer>
+    Голосовой ввод работает в Chrome и Edge (браузер попросит доступ к микрофону).
+    Перевод — Google Translate (резерв — MyMemory), озвучка — голоса вашего браузера.
+    Программа для Windows с тем же интерфейсом — кнопка «Скачать для Windows».
+    Исходный код — <a href="https://github.com/ray15bunk/tirgum">github.com/ray15bunk/tirgum</a>.
+  </footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // Поддерживаемые языки: код, подписи, язык распознавания и озвучки.
+  const LANGS = {
+    ru: { code: "RU", name: "Русский", say: "по-русски", speech: "ru-RU" },
+    en: { code: "EN", name: "Английский", say: "по-английски", speech: "en-US" },
+  };
+  const MAX_CHARS = 5000;
+  const STATUS_COLORS = { idle: "var(--idle)", busy: "var(--busy)", listen: "var(--listen)", ok: "var(--ok)", error: "var(--error)" };
+
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    subtitle: $("subtitle"), direction: $("direction"), swap: $("swap"),
+    inBadge: $("inBadge"), inTitle: $("inTitle"), outBadge: $("outBadge"), outTitle: $("outTitle"),
+    input: $("input"), translate: $("translate"), mic: $("mic"), micHint: $("micHint"),
+    output: $("output"), copy: $("copy"), repeat: $("repeat"), speeds: $("speeds"),
+    dot: $("dot"), status: $("status"),
+  };
+
+  // Настройки запоминаются в браузере (если хранилище доступно).
+  const store = {
+    get(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : v; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, value); } catch { /* приватный режим — не страшно */ } },
+  };
+
+  const state = {
+    src: store.get("tirgum.src", "ru") === "en" ? "en" : "ru",
+    speed: [1, 0.85, 0.7].includes(parseFloat(store.get("tirgum.speed", "0.85"))) ? parseFloat(store.get("tirgum.speed", "0.85")) : 0.85,
+    translation: "",
+    busy: false,
+    listening: false,
+  };
+  const tgt = () => (state.src === "ru" ? "en" : "ru");
+
+  // ---------- Статус и подписи ----------
+  function setStatus(text, kind = "idle") {
+    el.status.textContent = text;
+    el.dot.style.background = STATUS_COLORS[kind] || STATUS_COLORS.idle;
+  }
+
+  function setMicHint(text, active = false) {
+    el.micHint.textContent = text;
+    el.micHint.classList.toggle("active", active);
+  }
+
+  function applyDirection() {
+    const s = LANGS[state.src], t = LANGS[tgt()];
+    el.direction.textContent = `${s.code}  →  ${t.code}`;
+    el.subtitle.textContent = `Говорите ${s.say} — слушайте ${t.say}`;
+    el.inBadge.textContent = s.code; el.inTitle.textContent = s.name;
+    el.outBadge.textContent = t.code; el.outTitle.textContent = t.name;
+    el.mic.title = `Скажите фразу ${s.say} (F2)`;
+    document.documentElement.lang = "ru";
+  }
+
+  function setOutput(text) {
+    state.translation = text;
+    el.output.textContent = text || "Здесь появится перевод";
+    el.output.classList.toggle("placeholder", !text);
+    el.copy.disabled = !text;
+    el.repeat.disabled = !text || !ttsSupported;
+  }
+
+  function setBusy(busy) {
+    state.busy = busy;
+    el.translate.disabled = busy;
+    el.translate.textContent = busy ? "Перевожу…" : "Перевести";
+    el.direction.disabled = busy || state.listening;
+    el.swap.disabled = busy || state.listening;
+    el.mic.disabled = busy || !recSupported;
+  }
+
+  // ---------- Перевод ----------
+  async function translateGoogle(text, sl, tl) {
+    // POST — чтобы длинный текст не упирался в ограничение длины адреса.
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+      body: "q=" + encodeURIComponent(text),
+    });
+    if (!res.ok) throw new Error("Google: HTTP " + res.status);
+    const data = await res.json();
+    const out = (data[0] || []).map((part) => part[0] || "").join("").trim();
+    if (!out) throw new Error("Google: пустой ответ");
+    return out;
+  }
+
+  async function translateMyMemory(text, sl, tl) {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0, 500))}&langpair=${sl}|${tl}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("MyMemory: HTTP " + res.status);
+    const data = await res.json();
+    const out = (data.responseData && data.responseData.translatedText || "").trim();
+    if (!out || data.responseStatus >= 400) throw new Error("MyMemory: " + (data.responseDetails || "пустой ответ"));
+    return out;
+  }
+
+  async function doTranslate() {
+    if (state.busy || state.listening) return;
+    const text = el.input.value.trim();
+    if (!text) { setStatus("Сначала скажите фразу или введите текст", "error"); el.input.focus(); return; }
+    if (text.length > MAX_CHARS) { setStatus(`Максимум ${MAX_CHARS} символов за раз`, "error"); return; }
+
+    const sl = state.src, tl = tgt();
+    setBusy(true);
+    setStatus("Перевожу…", "busy");
+    let result, service;
+    try {
+      result = await translateGoogle(text, sl, tl); service = "Google";
+    } catch (googleError) {
+      try {
+        result = await translateMyMemory(text, sl, tl); service = "MyMemory (резерв)";
+      } catch (fallbackError) {
+        setBusy(false);
+        setStatus("Не удалось перевести — проверьте интернет и попробуйте ещё раз", "error");
+        console.error(googleError, fallbackError);
+        return;
+      }
+    }
+    setBusy(false);
+    setOutput(result);
+    setStatus(`Готово · перевод: ${service}`, "ok");   // если озвучка не начнётся, статус не «зависнет»
+    speak(result, service);
+  }
+
+  // ---------- Озвучка (Web Speech API, голоса браузера) ----------
+  const ttsSupported = "speechSynthesis" in window;
+  let voices = [];
+  function loadVoices() { voices = ttsSupported ? speechSynthesis.getVoices() : []; }
+  if (ttsSupported) { loadVoices(); speechSynthesis.addEventListener("voiceschanged", loadVoices); }
+
+  function pickVoice(lang) {
+    const matching = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith(lang));
+    // Предпочитаем «живые» сетевые голоса: Google, Natural (Edge), Online.
+    const score = (v) => (/natural|online|google/i.test(v.name) ? 2 : 0) + (v.localService ? 0 : 1);
+    return matching.sort((a, b) => score(b) - score(a))[0] || null;
+  }
+
+  function splitForSpeech(text) {
+    // Chrome обрывает длинные фразы (~15 с), поэтому озвучиваем по предложениям.
+    const parts = text.match(/[^.!?…]+[.!?…]*\s*/g) || [text];
+    const chunks = [];
+    let current = "";
+    for (const part of parts) {
+      if ((current + part).length > 180 && current) { chunks.push(current); current = ""; }
+      current += part;
+    }
+    if (current.trim()) chunks.push(current);
+    return chunks;
+  }
+
+  function speak(text, service) {
+    const suffix = service ? ` · перевод: ${service}` : "";
+    if (!ttsSupported) { setStatus("Браузер не поддерживает озвучку" + suffix, "error"); return; }
+    speechSynthesis.cancel();
+    const lang = tgt();
+    const voice = pickVoice(lang);
+    if (!voice && voices.length) {
+      setStatus(`В браузере нет голоса для языка «${LANGS[lang].name}»` + suffix, "error");
+    }
+    const chunks = splitForSpeech(text);
+    chunks.forEach((chunk, i) => {
+      const u = new SpeechSynthesisUtterance(chunk.trim());
+      u.lang = LANGS[lang].speech;
+      if (voice) u.voice = voice;
+      u.rate = state.speed;   // темп без изменения высоты голоса
+      if (i === 0 && (voice || !voices.length)) u.onstart = () => setStatus(`Воспроизведение · темп ${state.speed}×` + suffix, "ok");
+      speechSynthesis.speak(u);
+    });
+  }
+
+  // ---------- Голосовой ввод (Web Speech API) ----------
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recSupported = !!Recognition;
+  let recognizer = null;
+  let finalText = "";
+
+  function startListening() {
+    if (!recSupported) { setStatus("Голосовой ввод работает в Chrome и Edge — здесь можно вводить текст", "error"); return; }
+    if (state.listening) { recognizer && recognizer.stop(); return; }   // повторное нажатие — закончить фразу
+    if (state.busy) return;
+    if (ttsSupported) speechSynthesis.cancel();   // чтобы микрофон не услышал озвучку
+
+    recognizer = new Recognition();
+    recognizer.lang = LANGS[state.src].speech;
+    recognizer.interimResults = true;
+    recognizer.continuous = false;
+    recognizer.maxAlternatives = 1;
+    finalText = "";
+
+    state.listening = true;
+    el.mic.classList.add("preparing");
+    setMicHint("Разрешите доступ к микрофону, если браузер спросит…");
+    setStatus("Включаю микрофон…", "busy");
+    setBusy(false);
+
+    recognizer.onstart = () => {
+      el.mic.classList.remove("preparing");
+      el.mic.classList.add("listening");
+      setMicHint(`Слушаю — говорите ${LANGS[state.src].say}`, true);
+      setStatus("Говорите… пауза в конце фразы — и я переведу (нажмите ещё раз, чтобы закончить)", "listen");
+    };
+    recognizer.onresult = (event) => {
+      let interim = "";
+      finalText = "";
+      for (let i = 0; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript;
+      }
+      el.input.value = (finalText + interim).trim();   // текст появляется прямо во время речи
+    };
+    recognizer.onerror = (event) => {
+      const messages = {
+        "not-allowed": "Нет доступа к микрофону — разрешите его в настройках сайта (значок замка в адресной строке)",
+        "service-not-allowed": "Нет доступа к микрофону — разрешите его в настройках сайта",
+        "no-speech": "Не услышал речь — нажмите микрофон и говорите сразу",
+        "audio-capture": "Микрофон не найден — проверьте, что он подключён",
+        "network": "Сервис распознавания речи недоступен — проверьте интернет",
+        "aborted": "Запись отменена",
+      };
+      finalText = "";
+      setStatus(messages[event.error] || "Ошибка распознавания: " + event.error, "error");
+    };
+    recognizer.onend = () => {
+      state.listening = false;
+      el.mic.classList.remove("preparing", "listening");
+      setMicHint("Нажмите и говорите · F2");
+      setBusy(false);
+      const text = (finalText || "").trim() || el.input.value.trim();
+      if (finalText.trim()) {
+        el.input.value = text;
+        setStatus(`Распознано: «${text}»`, "ok");
+        doTranslate();
+      } else if (el.status.textContent.startsWith("Говорите")) {
+        setStatus("Не удалось разобрать речь — попробуйте ещё раз", "error");
+      }
+    };
+
+    try { recognizer.start(); }
+    catch (e) { state.listening = false; el.mic.classList.remove("preparing"); setBusy(false); setStatus("Не удалось включить микрофон: " + e.message, "error"); }
+  }
+
+  // ---------- Направление и темп ----------
+  function swapDirection() {
+    if (state.busy || state.listening) return;
+    const oldInput = el.input.value, oldOutput = state.translation;
+    state.src = tgt();
+    store.set("tirgum.src", state.src);
+    if (ttsSupported) speechSynthesis.cancel();
+    el.input.value = oldOutput;           // бывший перевод — новый исходный текст
+    setOutput(oldInput.trim());
+    applyDirection();
+    setStatus(`Направление: ${LANGS[state.src].name} → ${LANGS[tgt()].name}`, "idle");
+    el.input.focus();
+  }
+
+  function renderSpeeds() {
+    el.speeds.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(parseFloat(b.dataset.speed) === state.speed)));
+  }
+
+  // ---------- События ----------
+  el.translate.addEventListener("click", doTranslate);
+  el.mic.addEventListener("click", startListening);
+  el.direction.addEventListener("click", swapDirection);
+  el.swap.addEventListener("click", swapDirection);
+  el.repeat.addEventListener("click", () => state.translation && speak(state.translation));
+  el.copy.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(state.translation); setStatus("Перевод скопирован в буфер обмена", "ok"); }
+    catch { setStatus("Не удалось скопировать — выделите текст вручную", "error"); }
+  });
+  el.speeds.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-speed]");
+    if (!b) return;
+    state.speed = parseFloat(b.dataset.speed);
+    store.set("tirgum.speed", String(state.speed));
+    renderSpeeds();
+    if (state.translation) speak(state.translation);
+    else setStatus(`Темп озвучки ${state.speed}× — применится к следующему переводу`, "idle");
+  });
+  el.input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); doTranslate(); }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "F2") { e.preventDefault(); startListening(); }
+    if (e.key === "F4") { e.preventDefault(); swapDirection(); }
+  });
+
+  // ---------- Старт ----------
+  applyDirection();
+  renderSpeeds();
+  setOutput("");
+  setBusy(false);
+  setMicHint(recSupported ? "Нажмите и говорите · F2" : "Голосовой ввод — в Chrome и Edge");
+  setStatus(recSupported ? "Готово к работе — нажмите микрофон или введите текст" : "Этот браузер не умеет распознавать речь — введите текст", recSupported ? "idle" : "error");
+})();
+</script>
+</body>
+</html>
