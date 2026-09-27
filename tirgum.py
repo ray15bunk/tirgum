@@ -11,8 +11,8 @@
        и сразу отправляется на перевод.
        Либо вводит/вставляет текст вручную и нажимает
        «Перевести» или Enter (Shift+Enter — перенос строки).
-    3. В фоновом потоке (QThread) текст переводится через deep-translator
-       (GoogleTranslator), затем gTTS синтезирует речь на языке перевода в mp3.
+    3. В фоновом потоке (QThread) текст переводится через Google
+       (резерв — deep-translator: GoogleTranslator, MyMemory), затем gTTS синтезирует речь на языке перевода в mp3.
     4. Готовый перевод показывается крупным шрифтом, а mp3 сразу
        воспроизводится через pygame.mixer.
     5. Кнопка 🔊 («Повторить озвучку») проигрывает уже готовый mp3 заново —
@@ -33,10 +33,13 @@
     python tirgum.py
 """
 
+import json
 import os
 import sys
 import shutil
 import tempfile
+import urllib.parse
+import urllib.request
 import uuid
 
 # Скрываем приветственное сообщение pygame в консоли (должно быть ДО импорта pygame).
@@ -295,6 +298,32 @@ class AudioManager:
 # Фоновый поток: перевод + синтез речи
 # ---------------------------------------------------------------------------
 
+GOOGLE_API_URL = "https://translate.googleapis.com/translate_a/single"
+
+
+def translate_google_api(text: str, source: str, target: str) -> str:
+    """
+    Перевод через публичный эндпоинт Google (client=gtx).
+    Текст отправляется POST-запросом, поэтому длина не упирается в длину адреса.
+    Ответ — JSON, где data[0] — список фрагментов [перевод, оригинал, ...].
+
+    Используется стандартный urllib, а не requests: запросы от библиотеки
+    requests Google распознаёт и отвечает капчей (429), а urllib — пропускает.
+    """
+    query = urllib.parse.urlencode({"client": "gtx", "sl": source, "tl": target, "dt": "t"})
+    request = urllib.request.Request(
+        f"{GOOGLE_API_URL}?{query}",
+        data=urllib.parse.urlencode({"q": text}).encode("utf-8"),
+        headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
+    )
+    with urllib.request.urlopen(request, timeout=15) as response:
+        data = json.loads(response.read().decode("utf-8"))
+    result = "".join(part[0] or "" for part in (data[0] or [])).strip()
+    if not result:
+        raise RuntimeError("пустой ответ")
+    return result
+
+
 class TranslateWorker(QThread):
     """
     Выполняет сетевые операции вне GUI-потока, чтобы окно не «зависало».
@@ -322,20 +351,29 @@ class TranslateWorker(QThread):
         """
         Переводит текст. Возвращает (перевод, название сервиса).
 
-        Основной сервис — GoogleTranslator. Google иногда временно блокирует
-        IP (ответ 429 «Too Many Requests» / страница с капчей) — тогда
-        используем резервный бесплатный сервис из той же библиотеки
-        deep-translator (MyMemory), чтобы приложение продолжало работать.
+        Сервисы пробуются по очереди, пока какой-то не ответит:
+          1. Google через translate.googleapis.com — тот же адрес, что
+             использует веб-версия; его Google не закрывает капчей.
+          2. GoogleTranslator из deep-translator — ходит на translate.google.com,
+             который Google иногда временно блокирует для IP (ответ 429 / капча).
+          3. MyMemoryTranslator из deep-translator — бесплатный резерв.
         """
+        errors = []
+        try:
+            return translate_google_api(self.text, self.src["google"], self.tgt["google"]), "Google"
+        except Exception as exc:  # сеть, лимиты, неожиданный ответ сервиса
+            errors.append(f"Google API: {exc}")
+
         try:
             result = GoogleTranslator(
                 source=self.src["google"], target=self.tgt["google"]
             ).translate(self.text)
             if result and result.strip():
                 return result.strip(), "Google"
-            google_error = "пустой ответ"
-        except Exception as exc:  # сеть, лимиты, неожиданный ответ сервиса
-            google_error = str(exc)
+            errors.append("Google (deep-translator): пустой ответ")
+        except Exception as exc:
+            errors.append(f"Google (deep-translator): {exc}")
+        google_error = "\n".join(errors)
 
         try:
             result = MyMemoryTranslator(

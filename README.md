@@ -21,7 +21,7 @@
 |---|---|---|
 | Запуск | по ссылке, ничего не устанавливается | скачать `Tirgum.exe` и запустить |
 | Голосовой ввод | Chrome и Edge (Web Speech API) | любой микрофон (SpeechRecognition + PyAudio) |
-| Перевод | Google Translate, резерв MyMemory | deep-translator: Google, резерв MyMemory |
+| Перевод | Google Translate, резерв MyMemory | Google Translate, резерв deep-translator (Google, MyMemory) |
 | Озвучка | голоса браузера | gTTS + pygame, замедление без изменения высоты (WSOLA) |
 
 Обеим версиям нужен интернет.
