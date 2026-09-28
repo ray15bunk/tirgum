@@ -1,0 +1,8 @@
+# Настройки для Netlify: сайт — статическая страница docs/index.html.
+# base = "docs" — Netlify работает только внутри docs/ и не видит
+# requirements.txt программы для Windows в корне репозитория,
+# поэтому не пытается устанавливать Python-библиотеки (pygame и др.).
+[build]
+  base = "docs"
+  publish = "."
+  command = "echo 'Static site: no build step'"
