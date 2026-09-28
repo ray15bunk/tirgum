@@ -645,7 +645,7 @@ class MicButton(QAbstractButton):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Тиргум — перевод с озвучкой")
+        self.setWindowTitle("Перевод — голосовой переводчик")
         self.resize(820, 720)
         self.setMinimumSize(620, 600)
 
@@ -739,7 +739,7 @@ class MainWindow(QMainWindow):
         header = QHBoxLayout()
         titles = QVBoxLayout()
         titles.setSpacing(2)
-        app_title = QLabel("Тиргум")
+        app_title = QLabel("Перевод")
         app_title.setObjectName("appTitle")
         self.subtitle = QLabel()
         self.subtitle.setObjectName("subtitle")
@@ -1183,7 +1183,7 @@ def install_excepthook():
 def main():
     install_excepthook()
     app = QApplication(sys.argv)
-    app.setApplicationName("Тиргум")
+    app.setApplicationName("Перевод")
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
